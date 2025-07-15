@@ -28,7 +28,7 @@ class ImageCacheServiceProvider extends ServiceProvider
     public function register()
     {
         $this->mergeConfigFrom(
-            __DIR__ . '../../../../../config/config.php',
+            __DIR__ . '/../../../config/config.php',
             ImageCacheFacade::BINDING
         );
 
@@ -37,7 +37,7 @@ class ImageCacheServiceProvider extends ServiceProvider
             $manager = $app->make('image');
 
             // Return new ImageCache instance
-            return new ImageCache($manager,);
+            return new ImageCache($manager);
         });
     }
 
