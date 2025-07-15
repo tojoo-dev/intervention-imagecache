@@ -134,11 +134,11 @@ class ImageCacheTest extends TestCase
     public function testProcess()
     {
         $image = $this->getMockBuilder(Image::class)
-                      ->setMethods(['resize', 'blur'])
+                      ->onlyMethods(['resize', 'blur'])
                       ->getMock();
 
         $manager = $this->getMockBuilder(ImageManager::class)
-                        ->setMethods(['make'])
+                        ->onlyMethods(['make'])
                         ->getMock();
 
         $image->expects($this->once())
@@ -224,7 +224,7 @@ class ImageCacheTest extends TestCase
         $imagedata = 'mocked image data';
 
         $image = $this->getMockBuilder(Image::class)
-                      ->setMethods(['resize', 'encode'])
+                      ->onlyMethods(['resize', 'encode'])
                       ->getMock();
 
         $image->expects($this->once())
@@ -267,7 +267,7 @@ class ImageCacheTest extends TestCase
         $imagedata = 'mocked image data';
 
         $image = $this->getMockBuilder(Image::class)
-                      ->setMethods(['resize', 'encode'])
+                      ->onlyMethods(['resize', 'encode'])
                       ->getMock();
 
         $image->expects($this->once())

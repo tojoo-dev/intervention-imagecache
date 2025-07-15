@@ -2,7 +2,7 @@
 
 Intervention Image Cache extends the [Intervention Image Class](https://github.com/Intervention/image/) package to be capable of image caching functionality.
 
-The library uses the [Illuminate/Cache](https://github.com/illuminate/cache/) package and can be easily integrated into the [Laravel Framework](https://laravel.com/). Based on your Laravel cache configuration you are able to choose between Filesystem, Database, Memcached or Redis for the temporary buffer store.
+The library uses the [Illuminate/Cache](https://github.com/illuminate/cache/) package and can be easily integrated into the [Laravel Framework](https://laravel.com/) (Laravel 8+). Based on your Laravel cache configuration you are able to choose between Filesystem, Database, Memcached or Redis for the temporary buffer store.
 
 The principle is simple. Every method call to the Intervention Image class is captured and checked by the caching interface. If this particular sequence of operations already have taken place, the data will be loaded directly from the cache instead of a resource-intensive image operation.
 
@@ -12,33 +12,22 @@ You can install this package quickly and easily with Composer.
 
 Require the package via Composer:
 
-    $ composer require intervention/imagecache
+    $ composer require tojoo/imagecache
 
 Now you are able to require the `vendor/autoload.php` file to PSR-4 autoload the library.
 
 ### Laravel Integration
 
-The Image Cache class supports Laravel integration. Best practice to use the library in Laravel is to add the ServiceProvider and Facade of the Intervention Image Class.
+For Laravel integration, you'll need to install the official Intervention Image Laravel package:
 
-Open your Laravel config file `config/app.php` and add the following lines.
+    $ composer require intervention/image-laravel
 
-In the `$providers` array add the service providers for this package.
+This package provides the Laravel ServiceProvider and Facade for Intervention Image. After installation, the `Image` facade will be available and you can use the cache functionality as described in the usage section.
 
-    'providers' => array(
-
-        [...]
-
-        'Intervention\Image\ImageServiceProvider'
-    ),
-
-Add the facade of this package to the `$aliases` array.
-
-    'aliases' => array(
-
-        [...]
-
-        'Image' => 'Intervention\Image\Facades\Image'
-    ),
+**Requirements:**
+- PHP ^8.1
+- Laravel ^8|^9|^10|^11|^12
+- Intervention Image ^3.11
 
 ## Usage
 
