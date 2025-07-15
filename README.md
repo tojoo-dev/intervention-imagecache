@@ -1,5 +1,7 @@
 # Intervention Image Cache
 
+> **Note:** This package extends and continues the development of the abandoned official [Intervention/imagecache](https://github.com/Intervention/imagecache) package. We released this fork to provide support for Intervention Image v3 and ensure continued compatibility with modern Laravel applications.
+
 Intervention Image Cache extends the [Intervention Image Class](https://github.com/Intervention/image/) package to be capable of image caching functionality.
 
 The library uses the [Illuminate/Cache](https://github.com/illuminate/cache/) package and can be easily integrated into the [Laravel Framework](https://laravel.com/) (Laravel 8+). Based on your Laravel cache configuration you are able to choose between Filesystem, Database, Memcached or Redis for the temporary buffer store.
@@ -32,25 +34,37 @@ This package provides the Laravel ServiceProvider and Facade for Intervention Im
 
 ## Usage
 
-The Image Cache is best called by the static method `Image::cache` from the Intervention Image class.
-
-To create cached images just use the static method `Image::cache` and pass the image manipulations via closure. The method will automatically detect if a cached file for your particular operations exists.
+To create cached images just use the static method `ImageCache::cache` from facades and pass the image manipulations via closure. The method will automatically detect if a cached file for your particular operations exists.
 
 ```php
 // run the operations on the image or read a file
 // for the particular operations from cache
-$img = Image::cache(function($image) {
+$img = ImageCache::cache(function($image) {
    return $image->make('public/foo.jpg')->resize(300, 200)->greyscale();
 });
 ```
 
 Determine a lifetime in minutes for the cache file as an optional second parameter. Pass a boolean true as optional third parameter to return an Intervention Image object instead of a image stream.
 
+For enhanced development experience with IDE autocompletion and type checking, you can use the `ImageCacheInterface` contract to type-hint the callback parameter:
+
 ```php
-// determine a lifetime and return as object instead of string
-$img = Image::cache(function($image) {
-   return $image->make('public/foo.jpg')->resize(300, 200)->greyscale();
-}, 10, true);
+use Intervention\Image\Laravel\Facades\ImageCache;
+use Intervention\Image\Interfaces\ImageCacheInterface;
+
+$img = ImageCache::cache(
+    function (ImageCacheInterface $image) {
+        return $image->make('public/foo.jpg')
+            ->resize(300, 200)
+            ->greyscale()
+            ->blur(5)
+            ->sharpen(10)
+            ->rotate(45)
+            ->brightness(20);
+    },
+    60, // Cache for 60 minutes
+    true // Return as Image object
+);
 ```
 
 ## Server configuration

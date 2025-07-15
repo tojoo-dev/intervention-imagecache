@@ -11,8 +11,9 @@ use Illuminate\Cache\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Interfaces\ImageManagerInterface;
+use Intervention\Image\Interfaces\ImageCacheInterface;
 
-class ImageCache
+class ImageCache implements ImageCacheInterface
 {
     /**
      * Cache lifetime in minutes

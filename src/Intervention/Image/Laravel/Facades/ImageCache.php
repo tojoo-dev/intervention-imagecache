@@ -4,6 +4,7 @@ namespace Intervention\Image\Laravel\Facades;
 
 use Closure;
 use Illuminate\Support\Facades\Facade;
+use Intervention\Image\Interfaces\ImageCacheInterface;
 
 /**
  * ImageCache Facade for Laravel
@@ -11,9 +12,12 @@ use Illuminate\Support\Facades\Facade;
  * Extends the existing Image facade with cache functionality
  * 
  * Usage:
- * $image = ImageCache::cache(function($cache) {
- *     $cache->make('path/to/image.jpg')->resize(300, 200)->blur(5);
+ * $image = ImageCache::cache(function(ImageCacheInterface $cache) {
+ *     return $cache->make('path/to/image.jpg')->resize(300, 200)->blur(5);
  * }, 60, true);
+ * 
+ * The ImageCacheInterface provides type safety for the callback parameter,
+ * enabling IDE autocompletion and type checking for image manipulation methods.
  */
 class ImageCache extends Facade
 {
@@ -32,10 +36,10 @@ class ImageCache extends Facade
     /**
      * Cache method for image processing
      *
-     * @param Closure $callback
+     * @param \Closure(ImageCacheInterface): mixed $callback
      * @param int|null $lifetime Cache lifetime in minutes
      * @param bool $returnObj Return as Image object or string
-     * @return mixed
+     * @return ($returnObj is true ? \Intervention\Image\Image : string)
      * @throws \Exception
      */
     public static function cache(Closure $callback, $lifetime = null, $returnObj = false)
