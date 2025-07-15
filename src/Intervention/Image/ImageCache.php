@@ -97,10 +97,12 @@ class ImageCache
             if (is_a($cache, 'Illuminate\Cache\CacheManager')) {
                 // add laravel cache and set custom cache_driver if persist
                 $cache_driver = function_exists('config') ? \config('imagecache.cache_driver') : null;
-                $this->cache = $cache_driver ? $cache->driver($cache_driver) : $cache;
+                // Default to 'file' if no specific driver configured
+                $cache_driver = $cache_driver ?: 'file';
+                $this->cache = $cache->driver($cache_driver);
             } else {
-                // define path in filesystem - use Laravel's cache path if available
-                $path = function_exists('storage_path') ? \storage_path('framework/cache/imagecache') : __DIR__ . '/../../../storage/cache';
+                // define path in filesystem
+                $path = __DIR__ . '/../../../storage/cache';
 
                 // create new default cache
                 $filesystem = new Filesystem();

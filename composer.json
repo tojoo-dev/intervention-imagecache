@@ -42,5 +42,15 @@
       "Intervention\\Image\\Test\\": "tests/"
     }
   },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Intervention\\Image\\Laravel\\ImageCacheServiceProvider"
+      ],
+      "aliases": {
+        "ImageCache": "Intervention\\Image\\Laravel\\Facades\\ImageCache"
+      }
+    }
+  },
   "minimum-stability": "stable"
 }
