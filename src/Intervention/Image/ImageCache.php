@@ -10,7 +10,7 @@ use Illuminate\Cache\Repository as Cache;
 use Illuminate\Cache\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Intervention\Image\ImageManager;
-use Intervention\Image\Interfaces\ImageInterface;
+use Intervention\Image\Interfaces\ImageManagerInterface;
 
 class ImageCache
 {
@@ -38,14 +38,14 @@ class ImageCache
     /**
      * Processed Image
      *
-     * @var Intervention\Image\Image
+     * @var \Intervention\Image\Interfaces\ImageInterface|null
      */
     public $image;
 
     /**
      * Intervention Image Manager
      *
-     * @var Intervention\Image\ImageManager
+     * @var \Intervention\Image\Interfaces\ImageManagerInterface
      */
     public $manager;
 
@@ -59,7 +59,7 @@ class ImageCache
     /**
      * Create a new instance
      */
-    public function __construct(ImageManager $manager = null, Cache $cache = null)
+    public function __construct(ImageManagerInterface $manager = null, Cache $cache = null)
     {
         if ($manager) {
             $this->manager = $manager;
@@ -269,13 +269,28 @@ class ImageCache
      */
     protected function processCall($call)
     {
-        $this->image = call_user_func_array(
-            [
-                $this->image,
-                $call['name']
-            ],
-            $call['arguments']
-        );
+        // Handle the first call which should be on the manager
+        if ($this->image === null) {
+            // Convert 'make' to 'read' for Intervention Image v3 compatibility
+            $methodName = $call['name'] === 'make' ? 'read' : $call['name'];
+
+            $this->image = call_user_func_array(
+                [
+                    $this->manager,
+                    $methodName
+                ],
+                $call['arguments']
+            );
+        } else {
+            // Subsequent calls on the image object
+            $this->image = call_user_func_array(
+                [
+                    $this->image,
+                    $call['name']
+                ],
+                $call['arguments']
+            );
+        }
     }
 
     /**
@@ -285,8 +300,8 @@ class ImageCache
      */
     public function process()
     {
-        // first call on manager
-        $this->image = $this->manager;
+        // Initialize image as null - first call should create the image
+        $this->image = null;
 
         // process calls on image
         foreach ($this->getCalls() as $call) {
