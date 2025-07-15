@@ -37,25 +37,28 @@ class ImageCacheController extends BaseController
      *
      * @param  string $template
      * @param  string $filename
-     * @return Illuminate\Http\Response
+     * @return \Illuminate\Http\Response
      */
     public function getImage($template, $filename)
     {
         $template = $this->getTemplate($template);
         $path = $this->getImagePath($filename);
 
-        // image manipulation based on callback
-        $manager = new ImageManager(Config::get('image'));
-        $content = $manager->cache(function ($image) use ($template, $path) {
+        // image manipulation using ImageCache
+        $manager = ImageManager::gd(); // Use default GD driver
+        $imageCache = new ImageCache($manager);
 
-            if ($template instanceof Closure) {
-                // build from closure callback template
-                $template($image->make($path));
-            } else {
-                // build from filter template
-                $image->make($path)->filter($template);
-            }
-        }, config('imagecache.lifetime'));
+        if ($template instanceof Closure) {
+            // build from closure callback template
+            $imageCache->make($path);
+            $template($imageCache);
+        } else {
+            // build from filter template  
+            $imageCache->make($path)->modify($template);
+        }
+
+        $lifetime = function_exists('config') ? \config('imagecache.lifetime', 5) : 5;
+        $content = $imageCache->get($lifetime);
 
         return $this->buildResponse($content);
     }
@@ -97,20 +100,24 @@ class ImageCacheController extends BaseController
      */
     protected function getTemplate($template)
     {
-        $template = config("imagecache.templates.{$template}");
+        $templateConfig = function_exists('config') ? \config("imagecache.templates.{$template}") : null;
 
         switch (true) {
             // closure template found
-            case is_callable($template):
-                return $template;
+            case is_callable($templateConfig):
+                return $templateConfig;
 
-            // filter template found
-            case class_exists($template):
-                return new $template();
+                // filter template found
+            case is_string($templateConfig) && class_exists($templateConfig):
+                return new $templateConfig();
 
             default:
                 // template not found
-                abort(404);
+                if (function_exists('abort')) {
+                    \abort(404);
+                } else {
+                    throw new \Exception('Template not found', 404);
+                }
                 break;
         }
     }
@@ -123,8 +130,11 @@ class ImageCacheController extends BaseController
      */
     protected function getImagePath($filename)
     {
+        // get paths from config or use default
+        $paths = function_exists('config') ? \config('imagecache.paths', []) : [];
+
         // find file
-        foreach (config('imagecache.paths') as $path) {
+        foreach ($paths as $path) {
             // don't allow '..' in filenames
             $image_path = $path . '/' . str_replace('..', '', $filename);
             if (file_exists($image_path) && is_file($image_path)) {
@@ -134,7 +144,11 @@ class ImageCacheController extends BaseController
         }
 
         // file not found
-        abort(404);
+        if (function_exists('abort')) {
+            \abort(404);
+        } else {
+            throw new \Exception('File not found', 404);
+        }
     }
 
     /**
@@ -155,9 +169,10 @@ class ImageCacheController extends BaseController
         $status_code = $not_modified ? 304 : 200;
 
         // return http response
+        $lifetime = function_exists('config') ? \config('imagecache.lifetime', 5) : 5;
         return new IlluminateResponse($content, $status_code, [
             'Content-Type' => $mime,
-            'Cache-Control' => 'max-age=' . (config('imagecache.lifetime') * 60) . ', public',
+            'Cache-Control' => 'max-age=' . ($lifetime * 60) . ', public',
             'Content-Length' => strlen($content),
             'Etag' => $etag
         ]);

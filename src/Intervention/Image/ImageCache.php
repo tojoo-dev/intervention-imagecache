@@ -9,8 +9,11 @@ use Illuminate\Cache\FileStore;
 use Illuminate\Cache\Repository as Cache;
 use Illuminate\Cache\Repository;
 use Illuminate\Filesystem\Filesystem;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Interfaces\ImageManagerInterface;
+use Intervention\Image\Interfaces\ImageCacheInterface;
 
-class ImageCache
+class ImageCache implements ImageCacheInterface
 {
     /**
      * Cache lifetime in minutes
@@ -36,14 +39,14 @@ class ImageCache
     /**
      * Processed Image
      *
-     * @var Intervention\Image\Image
+     * @var \Intervention\Image\Interfaces\ImageInterface|null
      */
     public $image;
 
     /**
      * Intervention Image Manager
      *
-     * @var Intervention\Image\ImageManager
+     * @var \Intervention\Image\Interfaces\ImageManagerInterface
      */
     public $manager;
 
@@ -57,13 +60,35 @@ class ImageCache
     /**
      * Create a new instance
      */
-    public function __construct(ImageManager $manager = null, Cache $cache = null)
+    public function __construct(ImageManagerInterface $manager = null, Cache $cache = null)
     {
-        $this->manager = $manager ? $manager : new ImageManager();
+        if ($manager) {
+            $this->manager = $manager;
+        } else {
+            // For Intervention Image 3.x, we need to provide a driver
+            // Try to use GD driver as default, fallback to ImageMagick if available
+            try {
+                if (class_exists('\Intervention\Image\Drivers\Gd\Driver') && extension_loaded('gd')) {
+                    $this->manager = new ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
+                } elseif (class_exists('\Intervention\Image\Drivers\Imagick\Driver') && extension_loaded('imagick')) {
+                    $this->manager = new ImageManager(new \Intervention\Image\Drivers\Imagick\Driver());
+                } else {
+                    // For older versions, use configuration array
+                    $this->manager = ImageManager::gd();
+                }
+            } catch (\Exception $e) {
+                // Ultimate fallback - try with gd configuration
+                try {
+                    $this->manager = ImageManager::gd();
+                } catch (\Exception $e2) {
+                    throw new \Exception('Unable to initialize ImageManager. Please check your Intervention Image installation.');
+                }
+            }
+        }
 
         if (is_null($cache)) {
             // get laravel app
-            $app = function_exists('app') ? app() : null;
+            $app = function_exists('app') ? \app() : null;
 
             // if laravel app cache exists
             if (is_a($app, 'Illuminate\Foundation\Application')) {
@@ -72,15 +97,13 @@ class ImageCache
 
             if (is_a($cache, 'Illuminate\Cache\CacheManager')) {
                 // add laravel cache and set custom cache_driver if persist
-                $cache_driver = config('imagecache.cache_driver');
-                $this->cache = $cache_driver ? $cache->driver($cache_driver) : $cache;
+                $cache_driver = function_exists('config') ? \config('imagecache.cache_driver') : null;
+                // Default to 'file' if no specific driver configured
+                $cache_driver = $cache_driver ?: 'file';
+                $this->cache = $cache->driver($cache_driver);
             } else {
                 // define path in filesystem
-                if (isset($manager->config['cache']['path'])) {
-                    $path = $manager->config['cache']['path'];
-                } else {
-                    $path = __DIR__ . '/../../../storage/cache';
-                }
+                $path = __DIR__ . '/../../../storage/cache';
 
                 // create new default cache
                 $filesystem = new Filesystem();
@@ -95,9 +118,9 @@ class ImageCache
     /**
      * Magic method to capture action calls
      *
-     * @param  String $name
-     * @param  Array $arguments
-     * @return Intervention\Image\ImageCache
+     * @param  string $name
+     * @param  array $arguments
+     * @return \Intervention\Image\ImageCache
      */
     public function __call($name, $arguments)
     {
@@ -249,24 +272,39 @@ class ImageCache
      */
     protected function processCall($call)
     {
-        $this->image = call_user_func_array(
-            [
-                $this->image,
-                $call['name']
-            ],
-            $call['arguments']
-        );
+        // Handle the first call which should be on the manager
+        if ($this->image === null) {
+            // Convert 'make' to 'read' for Intervention Image v3 compatibility
+            $methodName = $call['name'] === 'make' ? 'read' : $call['name'];
+
+            $this->image = call_user_func_array(
+                [
+                    $this->manager,
+                    $methodName
+                ],
+                $call['arguments']
+            );
+        } else {
+            // Subsequent calls on the image object
+            $this->image = call_user_func_array(
+                [
+                    $this->image,
+                    $call['name']
+                ],
+                $call['arguments']
+            );
+        }
     }
 
     /**
      * Process all saved image calls on Image object
      *
-     * @return Intervention\Image\Image
+     * @return \Intervention\Image\Interfaces\ImageInterface
      */
     public function process()
     {
-        // first call on manager
-        $this->image = $this->manager;
+        // Initialize image as null - first call should create the image
+        $this->image = null;
 
         // process calls on image
         foreach ($this->getCalls() as $call) {
@@ -274,7 +312,9 @@ class ImageCache
         }
 
         // append checksum to image
-        $this->image->cachekey = $this->checksum();
+        if ($this->image && method_exists($this->image, '__set')) {
+            $this->image->cachekey = $this->checksum();
+        }
 
         // clean-up
         $this->clearCalls();
@@ -289,7 +329,7 @@ class ImageCache
      *
      * @param  int  $lifetime
      * @param  bool $returnObj
-     * @return mixed
+     * @return ($returnObj is true ? \Intervention\Image\Interfaces\ImageInterface : string)
      */
     public function get($lifetime = null, $returnObj = false)
     {
@@ -304,8 +344,9 @@ class ImageCache
         if ($cachedImageData) {
             // transform into image-object
             if ($returnObj) {
-                $image = $this->manager->make($cachedImageData);
-                return (new CachedImage())->setFromOriginal($image, $key);
+                $image = $this->manager->read($cachedImageData);
+                $image->cachekey = $key;
+                return $image;
             }
 
             // return raw data
@@ -314,8 +355,8 @@ class ImageCache
             // process image data
             $image = $this->process();
 
-            // encode image data only if image is not encoded yet
-            $encoded = $image->encoded ? $image->encoded : (string) $image->encode();
+            // encode image data
+            $encoded = (string) $image->encode();
 
             // save to cache...
             $this->cache->put($key, $encoded, Carbon::now()->addMinutes($lifetime));
