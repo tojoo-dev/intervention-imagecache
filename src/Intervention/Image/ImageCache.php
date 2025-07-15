@@ -99,8 +99,8 @@ class ImageCache
                 $cache_driver = function_exists('config') ? \config('imagecache.cache_driver') : null;
                 $this->cache = $cache_driver ? $cache->driver($cache_driver) : $cache;
             } else {
-                // define path in filesystem
-                $path = __DIR__ . '/../../../storage/cache';
+                // define path in filesystem - use Laravel's cache path if available
+                $path = function_exists('storage_path') ? \storage_path('framework/cache/imagecache') : __DIR__ . '/../../../storage/cache';
 
                 // create new default cache
                 $filesystem = new Filesystem();
@@ -326,7 +326,7 @@ class ImageCache
      *
      * @param  int  $lifetime
      * @param  bool $returnObj
-     * @return mixed
+     * @return ($returnObj is true ? \Intervention\Image\Interfaces\ImageInterface : string)
      */
     public function get($lifetime = null, $returnObj = false)
     {

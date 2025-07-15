@@ -25,6 +25,7 @@ For Laravel integration, you'll need to install the official Intervention Image 
 This package provides the Laravel ServiceProvider and Facade for Intervention Image. After installation, the `Image` facade will be available and you can use the cache functionality as described in the usage section.
 
 **Requirements:**
+
 - PHP ^8.1
 - Laravel ^8|^9|^10|^11|^12
 - Intervention Image ^3.11
